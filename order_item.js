@@ -1,27 +1,7 @@
 import Database from 'better-sqlite3';
-import { v4 as uuidv4 } from 'uuid';
-import crypto from "crypto";
 import BigNumber from "bignumber.js";
-import {formatDatePaymentsFormat} from './utils.js';
-import {
-    createAgreement,
-    insertAgreement,
-    increaseAgreementAmountDue, getAgreement, increaseAgreementAmountAccepted
-} from './aggreement.js';
-import {
-    createActivity,
-    increaseActivityAndAgreementAmountAccepted,
-    increaseActivityAndAgreementAmountDue,
-    insertActivity
-} from "./activity.js";
-import {createDebitNote, getLastDebitNote, insertDebitNote} from "./debit.js";
-import {createInvoice, insertInvoice} from "./invoice.js";
 
-
-
-
-
-function order_items_document() {
+function order_item_documents() {
     const db = new Database('payment.db');
     db.transaction(() => {
         let query = `
@@ -45,16 +25,31 @@ function order_items_document() {
             `;
         let rows = db.prepare(query).all();
         let sumAmount = BigNumber(0);
+        let order = {}
+        let order_item = {}
+        let payee_addr = {}
         rows.forEach(row => {
+            payee_addr[row.payee_addr] = true;
+            order[row.order_id] = true;
+            order_item[row.order_id + "_" + row.payee_addr + "_" + row.allocation_id] = row.pboi_amount;
+            let amount = BigNumber(row.amount);
+            sumAmount = sumAmount.plus(amount);
 
-            if (row.order_id === '9802f970-9387-4e03-8be1-a13145d18267') {
-                console.log(row);
-                let amount = BigNumber(row.amount);
-                sumAmount = sumAmount.plus(amount);
-            }
+         });
 
-        });
-        console.log("Total amount: ", sumAmount.toString());
+        let sumOrderItemAmount = BigNumber(0);
+        for (const order_value of Object.values(order_item)) {
+            sumOrderItemAmount = sumOrderItemAmount.plus(order_value);
+        }
+
+
+        console.log("Summary of orders:");
+        console.log("Number of orders: ", Object.keys(order).length);
+        console.log("Number of order items: ", Object.keys(order_item).length);
+        console.log("Number of order item documents: ", rows.length);
+        console.log("Number of payee addresses: ", Object.keys(payee_addr).length);
+        console.log("Total order item amount: ", sumOrderItemAmount.toString());
+        console.log("Total order item documents amount: ", sumAmount.toString());
     })();
 }
 
@@ -75,20 +70,20 @@ function order_items() {
             `;
         let rows = db.prepare(query).all();
         let sumAmount = BigNumber(0);
+        let order = {}
         rows.forEach(row => {
-            if (row.order_id === '9802f970-9387-4e03-8be1-a13145d18267') {
                 console.log(`${row.allocation_id} ${row.amount}`);
                 let amount = BigNumber(row.amount);
 
+                order[row.order_id] = true;
                 sumAmount = sumAmount.plus(amount);
-            }
 
         });
 
-        console.log("Total amount: ", sumAmount.toString());
-
-
+        console.log("Number of orders: ", Object.keys(order).length);
+        console.log("Number of order items: ", rows.length);
+        console.log("Total order item amount: ", sumAmount.toString());
     })();
 }
 
-order_items()
+order_item_documents()
